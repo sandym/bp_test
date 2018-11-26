@@ -1,6 +1,3 @@
-
-
-//#include <strings.h>
 #include <random>
 #include <iostream>
 #include <thread>
@@ -9,6 +6,14 @@
 #include <boost/process.hpp>
 
 namespace bp = boost::process;
+
+int nbOfNormalExitAnnounced = 0;
+int nbOfCrashAnnounced = 0;
+int nbOfErrorExitAnnounced = 0;
+
+int nbOfNormalExitReceived = 0;
+int nbOfCrashReceived = 0;
+int nbOfErrorExitReceived = 0;
 
 std::vector<std::string> split_lines(const std::string &s)
 {
@@ -56,20 +61,32 @@ struct Child
 			std::cout << "child " << token << " did not produce any output" << std::endl;
 			return;
 		}
+		
+		if (lines.back() == "exit")
+			++nbOfNormalExitAnnounced;
+		if (lines.back() == "error")
+			++nbOfErrorExitAnnounced;
+		if (lines.back() == "crash")
+			++nbOfCrashAnnounced;
 
-		// last line should match exit code
+		// last line should match exit mode
+		
+		// how do I detect the crash here !? signal and exit code get mixed up
+		
 		switch (exit)
 		{
-		case -1:
+		case 255:
+			++nbOfErrorExitReceived;
 			if (lines.back() != "error")
 				std::cout << "child " << token << " unexpected exit code" << std::endl;
 			break;
 		case 0:
+			++nbOfNormalExitReceived;
 			if (lines.back() != "exit")
 				std::cout << "child " << token << " unexpected exit code" << std::endl;
 			break;
 		default:
-			std::cout << "child " << token << " unexpected exit code" << std::endl;
+			std::cout << "child " << token << " unexpected exit code : " << exit << std::endl;
 			break;
 		}
 		lines.pop_back();
@@ -116,7 +133,7 @@ struct Child
 void output_sleep( const std::string &s )
 {
 	std::cout << s << std::endl;
-	std::this_thread::sleep_for( std::chrono::milliseconds(500) );
+	std::this_thread::sleep_for( std::chrono::milliseconds(100) );
 }
 
 int main( int argc, char **argv )
@@ -135,6 +152,7 @@ int main( int argc, char **argv )
 			output_sleep( token );
 
 		// 2- should we crash, error or just exit?
+		// switch ( rand()%3 ) crash detection does not work ?
 		switch ( rand()%2 )
 		{
 			case 0:
@@ -165,7 +183,7 @@ int main( int argc, char **argv )
 	std::vector<std::unique_ptr<Child>> children;
 	for ( int i = 0; i < nbOfChildren; ++i )
 	{
-		std::cout << "staring child with token: " << i << std::endl;
+		//std::cout << "staring child with token: " << i << std::endl;
 		children.emplace_back( new Child( argv[0], i, ios ) );
 	}
 
@@ -174,5 +192,18 @@ int main( int argc, char **argv )
 	for ( auto &it : children )
 		it->child_process.wait();
 
+	std::cout << "nbOfNormalExitAnnounced = " << nbOfNormalExitAnnounced << std::endl;
+	std::cout << "nbOfNormalExitReceived = " << nbOfNormalExitReceived << std::endl;
+
+	std::cout << "nbOfErrorExitAnnounced = " << nbOfErrorExitAnnounced << std::endl;
+	std::cout << "nbOfErrorExitReceived = " << nbOfErrorExitReceived << std::endl;
+
+	std::cout << "nbOfCrashAnnounced = " << nbOfCrashAnnounced << std::endl;
+	std::cout << "nbOfCrashReceived = " << nbOfCrashReceived << std::endl;
+
 	std::cout << "done" << std::endl;
+	
+	assert( nbOfNormalExitAnnounced == nbOfNormalExitReceived );
+	assert( nbOfErrorExitAnnounced == nbOfErrorExitReceived );
+	assert( nbOfCrashAnnounced == nbOfCrashReceived );
 }

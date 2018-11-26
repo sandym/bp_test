@@ -1,12 +1,10 @@
 cmake_minimum_required( VERSION 3.10 )
+project( bp_test )
 
 set( CMAKE_CXX_STANDARD 11 )
 
-
 # ./bootstrap.[bat | sh]
 # ./b2 --prefix=... install
-
-set( CMAKE_CXX_STANDARD 14 )
 
 set( BOOST_ROOT ${CMAKE_CURRENT_LIST_DIR}/boost )
 set( Boost_USE_STATIC_LIBS on )
